@@ -1,0 +1,35 @@
+FROM wordpress:php7.4-fpm
+
+ENV PHPREDIS_VERSION 6.0.2
+
+RUN docker-php-source extract \
+  && curl -L -o /tmp/redis.tar.gz https://github.com/phpredis/phpredis/archive/$PHPREDIS_VERSION.tar.gz \
+  && tar xfz /tmp/redis.tar.gz \
+  && mv phpredis-$PHPREDIS_VERSION /usr/src/php/ext/redis \
+  && docker-php-ext-install redis \
+  && docker-php-source delete
+
+# ioncube loader
+ENV IONCUBE_VER '13.3.1'
+RUN set -ex \
+    && mkdir /tmp/ioncube_install \
+    && cd /tmp/ioncube_install \
+    && php_ext_dir="$(php -i | grep extension_dir | head -n1 | awk '{print $3}')" \
+    && curl -fSL -o ioncube.tar.gz \
+        "http://downloads3.ioncube.com/loader_downloads/ioncube_loaders_lin_x86-64_${IONCUBE_VER}.tar.gz" \
+    && tar zxf ioncube.tar.gz \
+    && mv ./ioncube/ioncube_loader_lin_7.4.so "${php_ext_dir}/" \
+    && rm -rf /tmp/ioncube_install \
+    && echo "zend_extension = $php_ext_dir/ioncube_loader_lin_7.4.so" \
+        > /usr/local/etc/php/conf.d/00-ioncube.ini
+
+# composer
+RUN curl -S https://getcomposer.org/installer | php \
+    && mv composer.phar /usr/local/bin/composer \
+    && composer self-update
+
+RUN rm /etc/apt/preferences.d/no-debian-php && apt-get update && apt-get install -y libxml2-dev php-soap && docker-php-ext-install soap
+
+
+ENTRYPOINT ["docker-entrypoint.sh"]
+CMD ["php-fpm"]

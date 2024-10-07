@@ -2,8 +2,7 @@ version: '3.9'
 services:
 
   wordpress:
-    # default port 9000 (FastCGI)
-    image: wordpress:5-fpm
+    image: wordpress:php7.4-fpm-custom
     container_name: wp-wordpress
     env_file:
       - .env
@@ -22,10 +21,14 @@ services:
       - WORDPRESS_DB_USER=${WORDPRESS_DB_USER}
       - WORDPRESS_DB_PASSWORD=${WORDPRESS_DB_PASSWORD}
 
-  database:
-    # default port 3306
-    image: mysql:8
-    container_name: wp-database
+  mariadb:
+    image: mariadb:11.5
+    container_name: wp-mariadb
+    command: [
+      "--character-set-server=utf8mb4",
+      "--collation-server=utf8mb4_unicode_ci",
+      "--skip-character-set-client-handshake"
+    ]
     env_file:
       - .env
     restart: unless-stopped
@@ -38,8 +41,6 @@ services:
       - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
     volumes:
       - ${MYSQL_LOCAL_HOME}:/var/lib/mysql
-    command:
-      - '--default-authentication-plugin=mysql_native_password'
 
   nginx:
     # default ports 80, 443 - expose mapping as needed to host
@@ -61,18 +62,46 @@ services:
       - ${NGINX_SSL_CERTS}:/etc/ssl:ro
       - ${NGINX_LOGS}:/var/log/nginx
 
-  # adminer - bring up only as needed - bypasses nginx
-#  adminer:
-#    # default port 8080
-#    image: adminer:4
-#    container_name: wp-adminer
-#    restart: unless-stopped
-#    networks:
-#      - wordpress
-#    depends_on:
-#      - database
-#    ports:
-#      - "9000:8080"
+  redis:
+    image: redis:7.2.4-custom
+    container_name: wp-redis
+    restart: always
+    build:
+      context: .
+      dockerfile: Dockerfile.redis
+      args:
+        REDIS_PASSWORD: "${REDIS_ROOT_PASSWORD}"
+    ports:
+      - ${IP}:6379:6379
+    volumes:
+      - redis_data:/root/redis
+      - redis_config:/usr/local/etc/redis/redis.conf
+    environment:
+      REDIS_PASSWORD: "${REDIS_ROOT_PASSWORD}"
+      # REDIS_PORT: 6379
+    networks:
+      - wordpress
+
+
+  phpmyadmin:
+    image: phpmyadmin:latest  # https://hub.docker.com/_/phpmyadmin
+    container_name: wp-phpmyadmin
+    environment:
+      # https://docs.phpmyadmin.net/en/latest/setup.html#docker-environment-variables
+      PMA_HOST: mariadb
+      PMA_PORT: 3306
+      # MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
+      UPLOAD_LIMIT: 250M
+    ports:
+      - 0.0.0.0:8080:80
+    links:
+      - db:db
+    volumes:
+     - ./config/pma_php.ini:/usr/local/etc/php/conf.d/conf.ini
+     - ./config/pma_config.php:/etc/phpmyadmin/config.user.inc.php
+    networks:
+      - wordpress
+
 
 networks:
   wordpress:
