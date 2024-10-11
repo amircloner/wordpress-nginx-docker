@@ -13,8 +13,8 @@ services:
       - database
     volumes:
       - ${WORDPRESS_LOCAL_HOME}:/var/www/html
-      - ${WORDPRESS_UPLOADS_CONFIG}:/usr/local/etc/php/conf.d/uploads.ini
-      # - /path/to/repo/myTheme/:/var/www/html/wp-content/themes/myTheme
+      - ${WORDPRESS_PHP_CONFIG}:/usr/local/etc/php/conf.d
+      - ${WORDPRESS_FPM_CONFIG}:/usr/local/etc/php-fpm.d
     environment:
       - WORDPRESS_DB_HOST=${WORDPRESS_DB_HOST}
       - WORDPRESS_DB_NAME=${WORDPRESS_DB_NAME}
@@ -43,7 +43,6 @@ services:
       - ${MYSQL_LOCAL_HOME}:/var/lib/mysql
 
   nginx:
-    # default ports 80, 443 - expose mapping as needed to host
     image: nginx:1
     container_name: wp-nginx
     env_file:
@@ -58,7 +57,7 @@ services:
       - "8443:443"   # https
     volumes:
       - ${WORDPRESS_LOCAL_HOME}:/var/www/html
-      - ${NGINX_CONF}:/etc/nginx/conf.d/default.conf
+      - ${NGINX_CONF}:/etc/nginx/conf.d
       - ${NGINX_SSL_CERTS}:/etc/ssl:ro
       - ${NGINX_LOGS}:/var/log/nginx
 
@@ -66,16 +65,18 @@ services:
     image: redis:7.2.4-custom
     container_name: wp-redis
     restart: always
+    env_file:
+      - .env
     build:
       context: .
       dockerfile: Dockerfile.redis
       args:
         REDIS_PASSWORD: "${REDIS_ROOT_PASSWORD}"
     ports:
-      - ${IP}:6379:6379
+      - 6379:6379
     volumes:
-      - redis_data:/root/redis
-      - redis_config:/usr/local/etc/redis/redis.conf
+      - ${REDIS_LOCAL_HOME}:/root/redis
+      - ${REDIS_CONFIG}:/usr/local/etc/redis/redis.conf
     environment:
       REDIS_PASSWORD: "${REDIS_ROOT_PASSWORD}"
       # REDIS_PORT: 6379
@@ -86,8 +87,10 @@ services:
   phpmyadmin:
     image: phpmyadmin:latest  # https://hub.docker.com/_/phpmyadmin
     container_name: wp-phpmyadmin
+    env_file:
+      - .env
+    restart: always
     environment:
-      # https://docs.phpmyadmin.net/en/latest/setup.html#docker-environment-variables
       PMA_HOST: mariadb
       PMA_PORT: 3306
       # MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
@@ -97,8 +100,8 @@ services:
     links:
       - db:db
     volumes:
-     - ./config/pma_php.ini:/usr/local/etc/php/conf.d/conf.ini
-     - ./config/pma_config.php:/etc/phpmyadmin/config.user.inc.php
+     - ${PHP_MY_ADMIN_PHP_CONF}:/usr/local/etc/php/conf.d/conf.ini
+     - ${PHP_MY_ADMIN_PMA_CONF}:/etc/phpmyadmin/config.user.inc.php
     networks:
       - wordpress
 
