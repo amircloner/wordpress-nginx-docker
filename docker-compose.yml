@@ -6,11 +6,14 @@ services:
     container_name: wp-wordpress
     env_file:
       - .env
+    build:
+      context: .
+      dockerfile: Dockerfile.wordpress
     restart: unless-stopped
     networks:
       - wordpress
     depends_on:
-      - database
+      - mariadb
     volumes:
       - ${WORDPRESS_LOCAL_HOME}:/var/www/html
       - ${WORDPRESS_PHP_CONFIG}:/usr/local/etc/php/conf.d
@@ -58,7 +61,7 @@ services:
     volumes:
       - ${WORDPRESS_LOCAL_HOME}:/var/www/html
       - ${NGINX_CONF}:/etc/nginx/conf.d
-      - ${NGINX_SSL_CERTS}:/etc/ssl:ro
+      - ${NGINX_SSL_CERTS}:/etc/ssl
       - ${NGINX_LOGS}:/var/log/nginx
 
   redis:
@@ -96,9 +99,9 @@ services:
       # MYSQL_ROOT_PASSWORD: "${DB_ROOT_PASSWORD}"
       UPLOAD_LIMIT: 250M
     ports:
-      - 0.0.0.0:8080:80
+      - 0.0.0.0:8085:80
     links:
-      - db:db
+      - mariadb:mariadb
     volumes:
      - ${PHP_MY_ADMIN_PHP_CONF}:/usr/local/etc/php/conf.d/conf.ini
      - ${PHP_MY_ADMIN_PMA_CONF}:/etc/phpmyadmin/config.user.inc.php

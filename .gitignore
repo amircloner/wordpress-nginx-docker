@@ -2,10 +2,10 @@
 .env
 
 # wordpress files
-wordpress
+wordpress-data
 
 # mysql files
-dbdata
+mariadb-data
 
 # logging output
 logs
